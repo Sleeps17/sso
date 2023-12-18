@@ -1,0 +1,9 @@
+version: "3"
+
+tasks:
+  app-migrate:
+    cmds:
+      - go run ./cmd/migrator/main.go --storage-path=./storage/sso.db --migrations-path=./migrations --migrations-table=sso-migrations
+  test-migrate:
+    cmds:
+      - go run ./cmd/migrator/main.go --storage-path=./storage/sso.db --migrations-path=./tests/migrations --migrations-table=soo-test-migrations
