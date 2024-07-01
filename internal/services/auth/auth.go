@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/sso/internal/domain/models"
+	"github.com/sso/internal/jwt"
+	"github.com/sso/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
-	"sso/internal/domain/models"
-	"sso/internal/jwt"
-	"sso/internal/storage"
 	"time"
 )
 
@@ -20,17 +20,13 @@ var (
 
 type Auth struct {
 	log         *slog.Logger
-	usrSaver    UserSaver
 	usrProvider UserProvider
 	appProvider AppProvider
 	tokenTTL    time.Duration
 }
 
-type UserSaver interface {
-	SaveUser(ctx context.Context, email string, passHash []byte) (uid int64, err error)
-}
-
 type UserProvider interface {
+	SaveUser(ctx context.Context, email string, passHash []byte) (int64, error)
 	User(ctx context.Context, email string) (models.User, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
 }
@@ -41,7 +37,6 @@ type AppProvider interface {
 
 func New(
 	log *slog.Logger,
-	userSaver UserSaver,
 	userProvider UserProvider,
 	appProvider AppProvider,
 	tokenTTL time.Duration,
@@ -49,7 +44,6 @@ func New(
 	return &Auth{
 		log:         log,
 		usrProvider: userProvider,
-		usrSaver:    userSaver,
 		appProvider: appProvider,
 		tokenTTL:    tokenTTL,
 	}
@@ -105,7 +99,7 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, password strin
 		return 0, fmt.Errorf("can't generate password hash: %d", err)
 	}
 
-	id, err := a.usrSaver.SaveUser(ctx, email, passHash)
+	id, err := a.usrProvider.SaveUser(ctx, email, passHash)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserExists) {
 			a.log.Warn("user already exists", slog.String("email", email))

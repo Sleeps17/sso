@@ -1,11 +1,11 @@
 package main
 
 import (
+	"github.com/sso/internal/app"
+	"github.com/sso/internal/config"
 	"log/slog"
 	"os"
 	"os/signal"
-	"sso/internal/app"
-	"sso/internal/config"
 	"syscall"
 )
 
@@ -20,7 +20,13 @@ func main() {
 		slog.String("env", cfg.Env),
 	)
 
-	application := app.New(log, cfg.Port, cfg.StoragePath, cfg.TokenTTL)
+	application := app.MustNew(
+		log,
+		cfg.Server.Port,
+		cfg.Storage.Url(),
+		cfg.Storage.Timeout,
+		cfg.TokenTTL,
+	)
 	go application.GRPCSrv.MustRun()
 
 	stop := make(chan os.Signal, 1)
@@ -48,11 +54,11 @@ func setupLogger(env string) *slog.Logger {
 		)
 	case devEnv:
 		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
 		)
 	case prodEnv:
 		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}),
 		)
 	}
 

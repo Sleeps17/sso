@@ -1,28 +1,34 @@
 package app
 
 import (
+	"context"
+	grpcserver "github.com/sso/internal/app/grpc"
+	"github.com/sso/internal/services/auth"
+	"github.com/sso/internal/storage/postgresql"
 	"log/slog"
-	grpcapp "sso/internal/app/grpc"
-	"sso/internal/services/auth"
-	"sso/internal/storage/sqlite"
 	"time"
 )
 
 type App struct {
-	GRPCSrv *grpcapp.App
+	GRPCSrv *grpcserver.Server
 }
 
-func New(log *slog.Logger, grpcPort int, storagePath string, tokenTTL time.Duration) *App {
-	s, err := sqlite.New(storagePath)
+func MustNew(log *slog.Logger, grpcPort int, dbConnString string, dbConnTimeout time.Duration, tokenTTL time.Duration) *App {
+	ctx, cancel := context.WithTimeout(context.Background(), dbConnTimeout)
+	defer cancel()
+
+	s, err := func() (*postgresql.Storage, error) {
+		defer cancel()
+		return postgresql.New(ctx, dbConnString)
+	}()
 	if err != nil {
 		panic(err)
 	}
 
-	authService := auth.New(log, s, s, s, tokenTTL)
-
-	grpcApp := grpcapp.New(log, authService, grpcPort)
+	authService := auth.New(log, s, s, tokenTTL)
+	grpcServer := grpcserver.New(log, authService, grpcPort)
 
 	return &App{
-		GRPCSrv: grpcApp,
+		GRPCSrv: grpcServer,
 	}
 }

@@ -10,8 +10,6 @@ import (
 	"log"
 )
 
-// TODO: подумать над миграциями: избавиться от колонки is_admin и попробовать перенести ее в отдельную таблицу
-
 func main() {
 	var storagePath, migrationsPath, migrationsTable string
 
@@ -20,6 +18,8 @@ func main() {
 	flag.StringVar(&migrationsTable, "migrations-table", "migrations", "name of migrations table")
 
 	flag.Parse()
+
+	fmt.Println(storagePath, migrationsPath, migrationsTable)
 
 	if storagePath == "" {
 		panic("storage path is required")

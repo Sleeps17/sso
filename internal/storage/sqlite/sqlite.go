@@ -6,16 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mattn/go-sqlite3"
-	"sso/internal/domain/models"
-	"sso/internal/storage"
+	"github.com/sso/internal/domain/models"
+	"github.com/sso/internal/storage"
 )
 
 type Storage struct {
 	db *sql.DB
 }
 
-const defaultIDValue = 0
-const userNotAdmin = false
+const (
+	defaultIDValue = 0
+	userNotAdmin   = false
+)
 
 func New(storagePath string) (*Storage, error) {
 	db, err := sql.Open("sqlite3", storagePath)
@@ -33,11 +35,13 @@ func New(storagePath string) (*Storage, error) {
 }
 
 func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (int64, error) {
+	const op = "sqlite.SaveUser"
+
 	query := `INSERT INTO users(email, pass_hash) VALUES(?, ?)`
 
 	stmt, err := s.db.Prepare(query)
 	if err != nil {
-		return defaultIDValue, fmt.Errorf("can't prepare query: %w", err)
+		return defaultIDValue, fmt.Errorf("%s: can't prepare query: %w", op, err)
 	}
 
 	res, err := stmt.ExecContext(ctx, email, passHash)
@@ -45,22 +49,24 @@ func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (
 
 		var sqlErr sqlite3.Error
 
-		if errors.As(err, &sqlErr) && sqlErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+		if errors.As(err, &sqlErr) && errors.Is(sqlErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
 			return defaultIDValue, storage.ErrUserExists
 		}
 
-		return defaultIDValue, fmt.Errorf("can't execute query: %w", err)
+		return defaultIDValue, fmt.Errorf("%s: can't execute query: %w", op, err)
 	}
 
 	id, err := res.LastInsertId()
 	if err != nil {
-		return defaultIDValue, fmt.Errorf("can't get user_id: %w", err)
+		return defaultIDValue, fmt.Errorf("%s: can't get user_id: %w", op, err)
 	}
 
 	return id, nil
 }
 
 func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
+	const op = "sqlite.User"
+
 	query := `SELECT id, email, pass_hash FROM users WHERE email = ?`
 
 	row := s.db.QueryRowContext(ctx, query, email)
@@ -76,13 +82,15 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 			return models.User{}, storage.ErrUserNotFound
 		}
 
-		return models.User{}, fmt.Errorf("can't select user: %w", err)
+		return models.User{}, fmt.Errorf("%s: can't select user: %w", op, err)
 	}
 
 	return models.User{ID: id, Email: email, PassHash: passHash}, nil
 }
 
 func (s *Storage) App(ctx context.Context, appId int32) (models.App, error) {
+	const op = "sqlite.App"
+
 	query := `SELECT id, name, secret FROM apps WHERE id = ?`
 
 	row := s.db.QueryRowContext(ctx, query, appId)
@@ -94,25 +102,22 @@ func (s *Storage) App(ctx context.Context, appId int32) (models.App, error) {
 			return models.App{}, storage.ErrAppNotFound
 		}
 
-		return models.App{}, fmt.Errorf("can't select app: %w", err)
+		return models.App{}, fmt.Errorf("%s: can't select app: %w", op, err)
 	}
 
 	return app, nil
 }
 
-func (s *Storage) IsAdmin(ctx context.Context, id int64) (bool, error) {
-	query := `SELECT is_admin FROM users WHERE id = ?`
+func (s *Storage) IsAdmin(ctx context.Context, userId int64) (bool, error) {
+	const op = "sqlite.IsAdmin"
 
-	row := s.db.QueryRowContext(ctx, query, id)
+	query := `SELECT EXISTS(SELECT 1 FROM admins WHERE user_id = ?)`
+
+	row := s.db.QueryRowContext(ctx, query, userId)
 
 	var isAdmin bool
 	if err := row.Scan(&isAdmin); err != nil {
-
-		if errors.Is(err, sql.ErrNoRows) {
-			return userNotAdmin, storage.ErrUserNotFound
-		}
-
-		return userNotAdmin, fmt.Errorf("can't check if user is admin: %w", err)
+		return userNotAdmin, fmt.Errorf("%s: can't check if user is admin: %w", op, err)
 	}
 
 	return isAdmin, nil

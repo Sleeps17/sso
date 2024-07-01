@@ -1,46 +1,46 @@
-package grpcapp
+package grpcserver
 
 import (
 	"fmt"
+	authgrpc "github.com/sso/internal/grpc/auth"
 	"google.golang.org/grpc"
 	"log/slog"
 	"net"
-	authgrpc "sso/internal/grpc/auth"
 )
 
-type App struct {
+type Server struct {
 	log        *slog.Logger
 	gRPCServer *grpc.Server
 	port       int
 }
 
-func New(log *slog.Logger, authService authgrpc.Auth, port int) *App {
+func New(log *slog.Logger, authService authgrpc.Auth, port int) *Server {
 	gRPCServer := grpc.NewServer()
 
 	authgrpc.Register(gRPCServer, authService)
 
-	return &App{
+	return &Server{
 		log:        log,
 		gRPCServer: gRPCServer,
 		port:       port,
 	}
 }
 
-func (a *App) MustRun() {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", a.port))
+func (s *Server) MustRun() {
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
 		panic("can't create listener: " + err.Error())
 	}
 
-	a.log.Info("gRPC server is running: ", slog.String("addr", l.Addr().String()))
+	s.log.Info("gRPC server is running: ", slog.String("addr", l.Addr().String()))
 
-	if err := a.gRPCServer.Serve(l); err != nil {
+	if err := s.gRPCServer.Serve(l); err != nil {
 		panic("can't serve gRPC server: " + err.Error())
 	}
 }
 
-func (a *App) Stop() {
-	a.log.Info("stopping gRPC server")
+func (s *Server) Stop() {
+	s.log.Info("stopping gRPC server")
 
-	a.gRPCServer.GracefulStop()
+	s.gRPCServer.GracefulStop()
 }

@@ -5,10 +5,10 @@ import (
 	"errors"
 	ssov1 "github.com/Sleeps17/protos/gen/go/sso"
 	"github.com/go-playground/validator/v10"
+	"github.com/sso/internal/services/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sso/internal/services/auth"
 )
 
 const emptyValue = 0
@@ -82,7 +82,6 @@ func (s *serverAPI) Register(ctx context.Context, req *ssov1.RegisterRequest) (*
 	}
 
 	return &ssov1.RegisterResponse{UserId: userID}, nil
-
 }
 
 func (s *serverAPI) IsAdmin(ctx context.Context, req *ssov1.IsAdminRequest) (*ssov1.IsAdminResponse, error) {
